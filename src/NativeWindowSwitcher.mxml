@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" minWidth="640" height="480"
+					   xmlns:s="library://ns.adobe.com/flex/spark"  showStatusBar="false" close="windowedapplication1_closeHandler(event)"
+					   xmlns:mx="library://ns.adobe.com/flex/mx" xmlns:code="http://code.google.com/p/flexlib/">
+
+	<fx:Script>
+		<![CDATA[
+			import flexlib.mdi.containers.MDIWindow;
+			
+			import modules.Module1;
+			import modules.Module2;
+			import modules.Module3;
+			
+			import mx.core.UIComponent;
+			import mx.events.ItemClickEvent;
+			
+			private var origHeight:Number = 0;
+			private var origWidth:Number = 0;
+			
+			public var mdiWinArr:Array = new Array();
+			
+			protected function togglebutton1_clickHandler(event:MouseEvent):void
+			{
+				if((event.currentTarget as ToggleButton).selected && !isModuleOpen(Module1)) {
+					var mdiWindow:MDIWindow = new MDIWindow();
+					mdiWindow.addChild(new Module1());
+					mdiCanvas.windowManager.add(mdiWindow);
+				} else {
+					mdiCanvas.windowManager.remove(getOpenModuleWindow(Module1));
+				}
+				mdiCanvas.windowManager.cascade();
+			}
+
+			protected function togglebutton2_clickHandler(event:MouseEvent):void
+			{
+				if((event.currentTarget as ToggleButton).selected && !isModuleOpen(Module2)) {
+					var mdiWindow:MDIWindow = new MDIWindow();
+					mdiWindow.addChild(new Module2());
+					mdiCanvas.windowManager.add(mdiWindow);
+					
+				} else {
+					mdiCanvas.windowManager.remove(getOpenModuleWindow(Module2));
+				}
+				mdiCanvas.windowManager.cascade();
+			}
+
+
+			protected function togglebutton3_clickHandler(event:MouseEvent):void
+			{
+				if((event.currentTarget as ToggleButton).selected && !isModuleOpen(Module3)) {
+					var mdiWindow:MDIWindow = new MDIWindow();
+					mdiWindow.addChild(new Module3());
+					mdiCanvas.windowManager.add(mdiWindow);
+					
+				} else {
+					mdiCanvas.windowManager.remove(getOpenModuleWindow(Module3));
+				}
+				mdiCanvas.windowManager.cascade();
+			}
+			protected function isModuleOpen(moduleClass:Class):Boolean
+			{
+				var openWindows:Array = mdiCanvas.windowManager.getOpenWindowList();
+				for(var i:uint=0;i<openWindows.length;i++) {
+					var window:MDIWindow = openWindows[i] as MDIWindow;
+					if(Object(window.getChildAt(0)).constructor == moduleClass) {
+						return true;
+						break;
+					}
+				}
+				return false;
+			}
+			protected function getOpenModuleWindow(moduleClass:Class):MDIWindow
+			{
+				var openWindows:Array = mdiCanvas.windowManager.getOpenWindowList();
+				for(var i:uint=0;i<openWindows.length;i++) {
+					var window:MDIWindow = openWindows[i] as MDIWindow;
+					if(Object(window.getChildAt(0)).constructor == moduleClass) {
+						return window;
+						break;
+					}
+				}
+				return null;
+			}
+			protected function viewSwitcher_itemClickHandler(event:ItemClickEvent):void
+			{
+				currentState = event.item.data;
+				if(currentState == "native") {
+					turnMDIWindowsToNative();
+					origHeight = this.nativeWindow.height;
+					origWidth = this.nativeWindow.width;
+					this.nativeWindow.height = toolbar.height+46;
+					this.nativeWindow.width = 640;
+				} else {
+					turnNativeWindowsToMDI();
+					this.nativeWindow.height = origHeight;
+					this.nativeWindow.width = origWidth;
+				}
+			}
+			protected function turnMDIWindowsToNative():void
+			{
+				var initOptions:NativeWindowInitOptions = new NativeWindowInitOptions();
+				initOptions.type = NativeWindowType.UTILITY;
+				var openWindows:Array = mdiCanvas.windowManager.getOpenWindowList();
+				var startXPos:Number = this.nativeWindow.x+this.mdiCanvas.x;
+				var startYPos:Number = this.nativeWindow.y+this.mdiCanvas.getLayoutBoundsY();
+				for(var i:uint=0;i<openWindows.length;i++) {
+					var window:MDIWindow = openWindows[i] as MDIWindow;
+					var nativeWin:NativeWindow = new NativeWindow(initOptions);
+					nativeWin.x = startXPos+window.x;
+					nativeWin.y = startYPos+window.y;
+					nativeWin.width = window.width;
+					nativeWin.height = window.height;
+					nativeWin.activate();
+					nativeWin.stage.addChild(window.getChildAt(0));
+				}
+				this.mdiCanvas.windowManager.removeAll();
+			}
+			protected function turnNativeWindowsToMDI():void
+			{
+				var openWindows:Array = this.nativeApplication.openedWindows;
+				for(var i:uint=0;i<openWindows.length;i++) {
+					var window:NativeWindow = openWindows[i] as NativeWindow;
+					if(window != this.nativeWindow) {
+						var mdiWindow:MDIWindow = new MDIWindow();
+						mdiWindow.x = window.x-this.nativeWindow.x;
+						mdiWindow.y = window.y-this.nativeWindow.y;
+						mdiWindow.width = window.width;
+						mdiWindow.height = window.height;
+						var child:DisplayObject = window.stage.getChildAt(0)
+						mdiWindow.addChild(child);
+					}
+				}
+			}
+
+			protected function windowedapplication1_closeHandler(event:Event):void
+			{
+				this.nativeApplication.exit();
+			}
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:layout>
+		<s:VerticalLayout gap="5" paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5" />
+	</s:layout>
+	<s:states>
+		<s:State name="mdi" />
+		<s:State name="native" />
+	</s:states>
+	<s:HGroup id="toolbar" verticalAlign="middle" width="100%">
+		<s:ToggleButton label="Module #1" click="togglebutton1_clickHandler(event)" />
+		<s:ToggleButton label="Module #2" click="togglebutton2_clickHandler(event)" />
+		<s:ToggleButton label="Module #3" click="togglebutton3_clickHandler(event)" />
+		<mx:Spacer width="100%" />
+		<s:Label text="Switch Native/MDI Mode" />
+		<mx:ToggleButtonBar id="viewSwitcher"  selectedIndex="0" itemClick="viewSwitcher_itemClickHandler(event)">
+			<mx:dataProvider>
+				<fx:Array>
+					<fx:Object label="MDI" data="mdi" />
+					<fx:Object label="Native" data="native" />
+				</fx:Array>
+			</mx:dataProvider>
+		</mx:ToggleButtonBar>
+	</s:HGroup>
+	<s:Group width="100%" height="100%" includeIn="mdi">
+		<s:Rect width="100%" height="100%" radiusX="2" radiusY="2">
+			<s:fill>
+				<s:LinearGradient rotation="90">
+					<s:GradientEntry color="#BBBBBB" ratio="0" />
+					<s:GradientEntry color="#666666" ratio="1" />
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>
+		<code:MDICanvas id="mdiCanvas" width="100%" height="100%" />
+	</s:Group>
+</s:WindowedApplication>
