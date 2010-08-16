@@ -14,6 +14,8 @@
 			import mx.core.UIComponent;
 			import mx.events.ItemClickEvent;
 			
+			import org.osmf.display.ScaleMode;
+			
 			private var origHeight:Number = 0;
 			private var origWidth:Number = 0;
 			
@@ -22,61 +24,119 @@
 			protected function togglebutton1_clickHandler(event:MouseEvent):void
 			{
 				if((event.currentTarget as ToggleButton).selected && !isModuleOpen(Module1)) {
-					var mdiWindow:MDIWindow = new MDIWindow();
-					mdiWindow.addChild(new Module1());
-					mdiCanvas.windowManager.add(mdiWindow);
+					openModule(Module1);
 				} else {
-					mdiCanvas.windowManager.remove(getOpenModuleWindow(Module1));
+					removeModule(Module1);
 				}
-				mdiCanvas.windowManager.cascade();
 			}
-
+			
 			protected function togglebutton2_clickHandler(event:MouseEvent):void
 			{
 				if((event.currentTarget as ToggleButton).selected && !isModuleOpen(Module2)) {
-					var mdiWindow:MDIWindow = new MDIWindow();
-					mdiWindow.addChild(new Module2());
-					mdiCanvas.windowManager.add(mdiWindow);
-					
+					openModule(Module2);
 				} else {
-					mdiCanvas.windowManager.remove(getOpenModuleWindow(Module2));
+					removeModule(Module2);
 				}
-				mdiCanvas.windowManager.cascade();
 			}
 
 
 			protected function togglebutton3_clickHandler(event:MouseEvent):void
 			{
 				if((event.currentTarget as ToggleButton).selected && !isModuleOpen(Module3)) {
-					var mdiWindow:MDIWindow = new MDIWindow();
-					mdiWindow.addChild(new Module3());
-					mdiCanvas.windowManager.add(mdiWindow);
-					
+					openModule(Module3);
 				} else {
-					mdiCanvas.windowManager.remove(getOpenModuleWindow(Module3));
+					removeModule(Module3);
 				}
-				mdiCanvas.windowManager.cascade();
+			}
+			protected function openModule(moduleclass:Class):void
+			{
+				if(currentState == "mdi") {
+					var mdiWindow:MDIWindow = new MDIWindow();
+					mdiWindow.addChild(new moduleclass());
+					mdiWindow.x = lastOpenWindowPoint.x+20;
+					mdiWindow.y = lastOpenWindowPoint.y+20;
+					mdiCanvas.windowManager.add(mdiWindow);
+				} else {
+					var newModule:* = new moduleclass();
+					nativeCreationBox.addChild(newModule);
+					nativeCreationBox.removeChild(newModule);
+					var startXPos:Number = this.nativeWindow.x+5;
+					var startYPos:Number = this.nativeWindow.y+toolbar.measuredHeight+42;
+					var initOptions:NativeWindowInitOptions = new NativeWindowInitOptions();
+					initOptions.type = NativeWindowType.NORMAL;
+					var nativeWin:NativeWindow = new NativeWindow(initOptions);
+					nativeWin.stage.scaleMode = StageScaleMode.NO_SCALE;
+					nativeWin.stage.align = StageAlign.TOP_LEFT;
+					nativeWin.x = startXPos+lastOpenWindowPoint.x+20;
+					nativeWin.y = startYPos+lastOpenWindowPoint.y+20;
+					nativeWin.height = 240;
+					nativeWin.width = 320;
+					nativeWin.stage.addChild(newModule);
+					nativeWin.activate();
+				}
+			}
+			protected function removeModule(moduleclass:Class):void
+			{
+				if(currentState == "mdi") {
+					var openModuleWin:* = getOpenModuleWindow(moduleclass);
+					mdiCanvas.windowManager.remove(openModuleWin as MDIWindow);
+				} else {
+					(getOpenModuleWindow(moduleclass) as NativeWindow).close();
+				}
+			}
+			protected function get lastOpenWindowPoint():Point
+			{	
+				var openWindows:Array;
+				if(currentState == "mdi") {
+					openWindows = mdiCanvas.windowManager.getOpenWindowList();
+				} else {
+					openWindows = this.nativeApplication.openedWindows;
+				}
+				var returnPt:Point = new Point();
+				if(openWindows.length) {
+					var win:* = openWindows[openWindows.length-1];
+					returnPt.x = win.x;
+					returnPt.y = win.y;
+				}
+				return returnPt;
 			}
 			protected function isModuleOpen(moduleClass:Class):Boolean
 			{
-				var openWindows:Array = mdiCanvas.windowManager.getOpenWindowList();
-				for(var i:uint=0;i<openWindows.length;i++) {
-					var window:MDIWindow = openWindows[i] as MDIWindow;
-					if(Object(window.getChildAt(0)).constructor == moduleClass) {
-						return true;
-						break;
+				var openWindows:Array = this.nativeApplication.openedWindows;
+				openWindows = openWindows.concat(mdiCanvas.windowManager.getOpenWindowList());
+				for(var i:uint=1;i<openWindows.length;i++) {
+					var window:* = openWindows[i];
+					if(window is NativeWindow) {
+						if(Object(window.stage.getChildAt(0)).constructor == moduleClass) {
+							return true;
+							break;
+						}
+					} else {
+						if(Object(window.getChildAt(0)).constructor == moduleClass) {
+							return true;
+							break;
+						}
 					}
 				}
 				return false;
 			}
-			protected function getOpenModuleWindow(moduleClass:Class):MDIWindow
+			protected function getOpenModuleWindow(moduleClass:Class):*
 			{
-				var openWindows:Array = mdiCanvas.windowManager.getOpenWindowList();
-				for(var i:uint=0;i<openWindows.length;i++) {
-					var window:MDIWindow = openWindows[i] as MDIWindow;
-					if(Object(window.getChildAt(0)).constructor == moduleClass) {
-						return window;
-						break;
+				var openWindows:Array = this.nativeApplication.openedWindows;
+				openWindows = openWindows.concat(mdiCanvas.windowManager.getOpenWindowList());
+				for(var i:uint=1;i<openWindows.length;i++) {
+					var window:* = openWindows[i];
+					if(window is NativeWindow) {
+						if(Object((window as NativeWindow).stage.getChildAt(0)).constructor == moduleClass) {
+							return window;
+							break;
+						}
+					} else {
+						var constructor:Class = Object((window as MDIWindow).getChildAt(0)).constructor;
+						if(Object((window as MDIWindow).getChildAt(0)).constructor == moduleClass) {
+							return window;
+							break;
+						}
 					}
 				}
 				return null;
@@ -91,49 +151,55 @@
 					this.nativeWindow.height = toolbar.height+46;
 					this.nativeWindow.width = 640;
 				} else {
-					turnNativeWindowsToMDI();
 					this.nativeWindow.height = origHeight;
 					this.nativeWindow.width = origWidth;
+					this.callLater(turnNativeWindowsToMDI);
 				}
 			}
 			protected function turnMDIWindowsToNative():void
 			{
 				toolbar.invalidateSize();
 				var initOptions:NativeWindowInitOptions = new NativeWindowInitOptions();
-				initOptions.type = NativeWindowType.UTILITY;
+				initOptions.type = NativeWindowType.NORMAL;
 				var openWindows:Array = mdiCanvas.windowManager.getOpenWindowList();
 				var pt:Point = this.mdiCanvas.localToGlobal(new Point());
-				var startXPos:Number = this.nativeWindow.x+5;
-				var startYPos:Number = this.nativeWindow.y+toolbar.measuredHeight+42;
+				var windowHeightOffset:Number = this.nativeWindow.height-this.stage.stageHeight;
+				var windowWidthOffset:Number = this.nativeWindow.width-this.stage.stageWidth;
+				var startXPos:Number = this.nativeWindow.x+5+windowWidthOffset;
+				var startYPos:Number = this.nativeWindow.y+toolbar.measuredHeight+10+windowHeightOffset;
 				for(var i:uint=0;i<openWindows.length;i++) {
 					var window:MDIWindow = openWindows[i] as MDIWindow;
 					var nativeWin:NativeWindow = new NativeWindow(initOptions);
+					nativeWin.stage.scaleMode = StageScaleMode.NO_SCALE;
+					nativeWin.stage.align = StageAlign.TOP_LEFT;
 					nativeWin.x = startXPos+window.x;
 					nativeWin.y = startYPos+window.y;
 					nativeWin.width = window.width;
 					nativeWin.height = window.height;
 					nativeWin.activate();
 					nativeWin.stage.addChild(window.getChildAt(0));
+					mdiCanvas.windowManager.remove(window);
 				}
-				this.mdiCanvas.windowManager.removeAll();
 			}
 			protected function turnNativeWindowsToMDI():void
 			{
 				var openWindows:Array = this.nativeApplication.openedWindows;
-				for(var i:uint=0;i<openWindows.length;i++) {
+				for(var i:uint=1;i<openWindows.length;i++) {
 					var window:NativeWindow = openWindows[i] as NativeWindow;
-					if(window != this.nativeWindow) {
-						var mdiWindow:MDIWindow = new MDIWindow();
-						mdiWindow.x = window.x-this.nativeWindow.x;
-						mdiWindow.y = window.y-this.nativeWindow.y;
-						mdiWindow.width = window.width;
-						mdiWindow.height = window.height;
-						var child:DisplayObject = window.stage.getChildAt(0)
-						mdiWindow.addChild(child);
-					}
+					var mdiWindow:MDIWindow = new MDIWindow();
+					var constructor:Class = Object(window.stage.getChildAt(0)).constructor;
+					mdiWindow.addChild(new constructor());
+					mdiCanvas.windowManager.add(mdiWindow);
+					var windowHeightOffset:Number = ((window.stage.nativeWindow.height-window.stage.stageHeight)*2);
+					var windowWidthOffset:Number = ((window.stage.nativeWindow.width-window.stage.stageWidth)*2);
+					mdiWindow.x = (window.x-this.nativeWindow.x)-windowWidthOffset+5;
+					mdiWindow.y = (window.y-this.nativeWindow.y)-windowHeightOffset+10;
+					mdiWindow.width = window.width;
+					mdiWindow.height = window.height;
+					window.close();
 				}
 			}
-
+			
 			protected function windowedapplication1_closeHandler(event:Event):void
 			{
 				this.nativeApplication.exit();
@@ -145,7 +211,6 @@
 	<fx:Declarations>
 		<!-- Place non-visual elements (e.g., services, value objects) here -->
 	</fx:Declarations>
-	
 	<s:states>
 		<s:State name="mdi" />
 		<s:State name="native" />
@@ -178,4 +243,5 @@
 			<code:MDICanvas id="mdiCanvas" width="100%" height="100%" />
 		</s:Group>
 	</s:VGroup>
+	<mx:Box id="nativeCreationBox" width="0" height="0" />
 </s:WindowedApplication>
